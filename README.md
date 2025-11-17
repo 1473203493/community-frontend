@@ -1,2 +1,2 @@
 # community-frontend
-社团管理系统前端
+社团管理系统PC前端
