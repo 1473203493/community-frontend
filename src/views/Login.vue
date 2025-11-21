@@ -21,7 +21,9 @@
               <label>验证码</label>
               <input v-model="form.captcha" type="text" placeholder="请输入右侧验证码" />
             </div>
-            <div class="captcha-box">AB12</div>
+            <div class="captcha-box" @click="generateCaptcha" title="点击刷新验证码">
+              {{ captchaCode }}
+            </div>
           </div>
           <div class="form-item form-row">
             <label class="checkbox">
@@ -30,7 +32,9 @@
             </label>
             <a href="javascript:void(0)" class="link" @click="goReset">忘记密码？</a>
           </div>
-          <button class="btn-primary" type="submit">登录</button>
+          <button class="btn-primary" type="submit" :disabled="loading">
+            {{ loading ? '正在登录…' : '登录' }}
+          </button>
           <p v-if="error" class="error-text">{{ error }}</p>
         </form>
       </div>
@@ -39,6 +43,8 @@
 </template>
 
 <script>
+import { login } from '@/api/modules/auth'
+
 export default {
   name: 'AdminLoginPage',
   data() {
@@ -49,23 +55,55 @@ export default {
         captcha: '',
         remember: false
       },
-      error: ''
+      error: '',
+      loading: false,
+      captchaCode: ''
     }
   },
+  created() {
+    this.generateCaptcha()
+  },
   methods: {
-    handleSubmit() {
+    async handleSubmit() {
       this.error = ''
       if (!this.form.account || !this.form.password || !this.form.captcha) {
         this.error = '请完整填写账号、密码和验证码'
         return
       }
-      // 这里使用简单前端校验和假登录逻辑，后续可替换为真实接口
-      if (this.form.account !== 'admin') {
-        this.error = '账号密码或验证码错误'
+      if (this.form.captcha.trim().toUpperCase() !== this.captchaCode) {
+        this.error = '验证码错误，请重新输入'
+        this.generateCaptcha()
+        this.form.captcha = ''
         return
       }
-      localStorage.setItem('adminToken', 'mock-token')
-      this.$router.push('/')
+      this.loading = true
+      try {
+        const { token } = await login({
+          account: this.form.account,
+          password: this.form.password,
+          captcha: this.form.captcha,
+          remember: this.form.remember
+        })
+        if (!token) {
+          throw new Error('登录失败：未获取到令牌')
+        }
+        localStorage.setItem('adminToken', token)
+        this.$router.push('/')
+      } catch (err) {
+        this.error = err?.message || err?.msg || '登录失败，请稍后重试'
+      } finally {
+        this.loading = false
+        this.generateCaptcha()
+        this.form.captcha = ''
+      }
+    },
+    generateCaptcha() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+      let code = ''
+      for (let i = 0; i < 4; i += 1) {
+        code += chars[Math.floor(Math.random() * chars.length)]
+      }
+      this.captchaCode = code
     },
     goReset() {
       // 预留密码重置入口，后续可跳转到密码重置页面
@@ -162,6 +200,8 @@ export default {
   justify-content: center;
   font-weight: 600;
   letter-spacing: 2px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .checkbox {
