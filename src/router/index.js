@@ -4,9 +4,10 @@ import Login from '../views/Login.vue'
 import AdminLayout from '../views/layout/AdminLayout.vue'
 import DashboardHome from '../views/dashboard/DashboardHome.vue'
 import ClubList from '../views/clubs/ClubList.vue'
+import ClubDetails from '../views/clubs/ClubDetails.vue'
 import CategoryList from '../views/clubs/CategoryList.vue'
-import ActivityList from '../views/activities/ActivityList.vue'
-import SignupList from '../views/activities/SignupList.vue'
+
+
 import UserList from '../views/users/UserList.vue'
 import OperationLog from '../views/system/OperationLog.vue'
 
@@ -37,23 +38,18 @@ const routes = [
         meta: { title: '社团列表' }
       },
       {
+        path: '/clubs/:id',
+        name: 'ClubDetails',
+        component: ClubDetails,
+        meta: { title: '社团详情' }
+      },
+      {
         path: '/club-categories',
         name: 'CategoryList',
         component: CategoryList,
-        meta: { title: '社团分类管理' }
+        meta: { title: '社团管理' }
       },
-      {
-        path: '/activities',
-        name: 'ActivityList',
-        component: ActivityList,
-        meta: { title: '活动列表' }
-      },
-      {
-        path: '/activity-signups',
-        name: 'SignupList',
-        component: SignupList,
-        meta: { title: '活动报名数据' }
-      },
+   
       {
         path: '/users',
         name: 'UserList',

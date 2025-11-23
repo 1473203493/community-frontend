@@ -29,7 +29,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in pagedData" :key="user.id">
+          <tr v-for="user in list" :key="user.userId">
             <td>--</td>
             <td>{{ user.name }}</td>
             <td>{{ user.email }}</td>
@@ -43,22 +43,20 @@
           </tr>
         </tbody>
       </table>
-      <div v-if="!pagedData.length" class="empty">暂无数据</div>
+      <div v-if="!list.length && !loading" class="empty">暂无数据</div>
+      <div v-if="loading" class="empty">加载中...</div>
     </div>
     <div class="pagination">
-      <button :disabled="page === 1" @click="page--">上一页</button>
-      <span>第 {{ page }} / {{ totalPages }} 页</span>
-      <button :disabled="page === totalPages" @click="page++">下一页</button>
+      <button :disabled="pageNum === 1" @click="changePage(pageNum-1)">上一页</button>
+      <span>第 {{ pageNum }} / {{ totalPages }} 页</span>
+      <button :disabled="pageNum === totalPages" @click="changePage(pageNum+1)">下一页</button>
+      <span style="margin-left:8px;">共 {{ total }} 条</span>
     </div>
   </div>
 </template>
 
 <script>
-const MOCK_DATA = [
-  { id: 1, name: '用户1', email: 'x1@qq.com', role: 'student', status: 'enabled' },
-  { id: 2, name: '用户2', email: 'x2@qq.com', role: 'student', status: 'enabled' },
-  { id: 3, name: '用户3', email: 'x3@qq.com', role: 'club-admin', status: 'disabled' }
-]
+import { getUserList, updateUserStatus } from '@/api/user/user'
 
 export default {
   name: 'UserList',
@@ -70,36 +68,78 @@ export default {
         studentNo: '',
         email: ''
       },
-      page: 1,
+      pageNum: 1,
       pageSize: 10,
-      list: MOCK_DATA
+      total: 0,
+      list: [],
+      loading: false
     }
   },
   computed: {
-    filteredData() {
-      return this.list
-    },
     totalPages() {
-      return Math.max(1, Math.ceil(this.filteredData.length / this.pageSize))
-    },
-    pagedData() {
-      const start = (this.page - 1) * this.pageSize
-      return this.filteredData.slice(start, start + this.pageSize)
+      return Math.max(1, Math.ceil(this.total / this.pageSize))
     }
   },
+  created() {
+    this.fetchList()
+  },
   methods: {
+    async fetchList() {
+      this.loading = true
+      try {
+        const params = {
+          pageNum: this.pageNum,
+          pageSize: this.pageSize,
+          role: this.filters.role,
+          status: this.filters.status,
+          studentNo: this.filters.studentNo,
+          email: this.filters.email
+        }
+        const res = await getUserList(params)
+        if (res.code === 0 && res.data) {
+          this.list = res.data.list || []
+          this.total = res.data.total || 0
+        } else {
+          this.list = []
+          this.total = 0
+        }
+      } catch (e) {
+        this.list = []
+        this.total = 0
+      } finally {
+        this.loading = false
+      }
+    },
     handleSearch() {
-      this.page = 1
+      this.pageNum = 1
+      this.fetchList()
+    },
+    changePage(page) {
+      if (page < 1 || page > this.totalPages) return
+      this.pageNum = page
+      this.fetchList()
     },
     roleText(role) {
       if (role === 'student') return '学生'
       if (role === 'club-admin') return '社团管理员'
       return role
     },
-    toggleStatus(user) {
+    async toggleStatus(user) {
       const next = user.status === 'enabled' ? 'disabled' : 'enabled'
-      user.status = next
-      alert(`已将用户 ${user.name} 状态修改为：${next === 'enabled' ? '启用' : '禁用'}`)
+      try {
+        this.loading = true
+        const res = await updateUserStatus({ userId: user.userId, status: next })
+        if (res.code === 0) {
+          this.$message && this.$message.success ? this.$message.success('操作成功') : alert('操作成功')
+          this.fetchList()
+        } else {
+          this.$message && this.$message.error ? this.$message.error(res.message || '操作失败') : alert(res.message || '操作失败')
+        }
+      } catch (e) {
+        this.$message && this.$message.error ? this.$message.error('请求失败') : alert('请求失败')
+      } finally {
+        this.loading = false
+      }
     }
   }
 }

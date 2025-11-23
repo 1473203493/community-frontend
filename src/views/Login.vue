@@ -22,7 +22,8 @@
               <input v-model="form.captcha" type="text" placeholder="请输入右侧验证码" />
             </div>
             <div class="captcha-box" @click="generateCaptcha" title="点击刷新验证码">
-              {{ captchaCode }}
+              <img v-if="captchaImg" :src="captchaImg" alt="验证码" style="height:32px;vertical-align:middle;" />
+              <span v-else>加载中</span>
             </div>
           </div>
           <div class="form-item form-row">
@@ -43,7 +44,7 @@
 </template>
 
 <script>
-import { login } from '@/api/modules/auth'
+import { loginAdmin, getValidateCode } from '@/api/login/login'
 
 export default {
   name: 'AdminLoginPage',
@@ -57,7 +58,8 @@ export default {
       },
       error: '',
       loading: false,
-      captchaCode: ''
+      captchaImg: '',
+      codeKey: ''
     }
   },
   created() {
@@ -70,43 +72,45 @@ export default {
         this.error = '请完整填写账号、密码和验证码'
         return
       }
-      if (this.form.captcha.trim().toUpperCase() !== this.captchaCode) {
-        this.error = '验证码错误，请重新输入'
-        this.generateCaptcha()
-        this.form.captcha = ''
-        return
-      }
       this.loading = true
       try {
-        const { token } = await login({
-          account: this.form.account,
+        const res = await loginAdmin({
+          username: this.form.account,
           password: this.form.password,
           captcha: this.form.captcha,
-          remember: this.form.remember
+          codeKey: this.codeKey
         })
-        if (!token) {
-          throw new Error('登录失败：未获取到令牌')
+        if (res.code === 0 && res.data && res.data.token) {
+          localStorage.setItem('adminToken', res.data.token)
+          this.$router.push('/')
+        } else {
+          this.error = res.message || '登录失败，请稍后重试'
+          this.generateCaptcha()
         }
-        localStorage.setItem('adminToken', token)
-        this.$router.push('/')
       } catch (err) {
         this.error = err?.message || err?.msg || '登录失败，请稍后重试'
+        this.generateCaptcha()
       } finally {
         this.loading = false
-        this.generateCaptcha()
         this.form.captcha = ''
       }
     },
-    generateCaptcha() {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-      let code = ''
-      for (let i = 0; i < 4; i += 1) {
-        code += chars[Math.floor(Math.random() * chars.length)]
+    async generateCaptcha() {
+      try {
+        const res = await getValidateCode()
+        if (res.code === 0 && res.data) {
+          this.captchaImg = res.data.codeValue
+          this.codeKey = res.data.codeKey
+        } else {
+          this.captchaImg = ''
+          this.codeKey = ''
+        }
+      } catch {
+        this.captchaImg = ''
+        this.codeKey = ''
       }
-      this.captchaCode = code
     },
     goReset() {
-      // 预留密码重置入口，后续可跳转到密码重置页面
       alert('请联系系统管理员重置密码或在后续完善密码重置页面')
     }
   }

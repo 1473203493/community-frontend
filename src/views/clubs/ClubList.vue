@@ -4,16 +4,13 @@
     <div class="toolbar">
       <select v-model="filters.status">
         <option value="">全部状态</option>
-        <option value="pending">待审批</option>
-        <option value="normal">正常</option>
-        <option value="frozen">冻结</option>
+        <option value="1">待审批</option>
+        <option value="2">正常</option>
+        <option value="3">冻结</option>
+        <option value="4">拒绝</option>
       </select>
-      <select v-model="filters.category">
-        <option value="">全部类别</option>
-        <option value="academic">学术类</option>
-        <option value="sport">体育类</option>
-      </select>
-      <input v-model="filters.ownerEmail" placeholder="负责人邮箱（模糊搜索）" />
+      <input v-model="filters.categoryId" placeholder="分类ID" style="width:90px" />
+      <input v-model="filters.founderEmail" placeholder="负责人邮箱（模糊搜索）" />
       <button @click="handleSearch">搜索</button>
     </div>
     <div class="table-wrapper">
@@ -28,38 +25,35 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="club in pagedData" :key="club.id">
+          <tr v-for="club in list" :key="club.clubId">
             <td>{{ club.name }}</td>
-            <td>{{ club.owner }}</td>
+            <td>{{ club.founderName }}</td>
             <td>{{ club.createdAt }}</td>
             <td>
-              <span :class="['tag', 'tag-' + club.status]">
+              <span :class="['tag', 'tag-' + statusClass(club.status)]">
                 {{ statusText(club.status) }}
               </span>
             </td>
             <td>
-              <button v-if="club.status === 'pending'" @click="approve(club)">审批</button>
-              <button v-else @click="viewDetail(club)">查看</button>
+              <button @click="viewDetail(club)">查看</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="!pagedData.length" class="empty">暂无数据</div>
+      <div v-if="!list.length && !loading" class="empty">暂无数据</div>
+      <div v-if="loading" class="empty">加载中...</div>
     </div>
     <div class="pagination">
-      <button :disabled="page === 1" @click="page--">上一页</button>
-      <span>第 {{ page }} / {{ totalPages }} 页</span>
-      <button :disabled="page === totalPages" @click="page++">下一页</button>
+      <button :disabled="pageNum === 1" @click="changePage(pageNum-1)">上一页</button>
+      <span>第 {{ pageNum }} / {{ totalPages }} 页</span>
+      <button :disabled="pageNum === totalPages" @click="changePage(pageNum+1)">下一页</button>
+      <span style="margin-left:8px;">共 {{ total }} 条</span>
     </div>
   </div>
 </template>
 
 <script>
-const MOCK_DATA = [
-  { id: 1, name: '社团 A', owner: '张三', createdAt: '2021-05-12', status: 'normal' },
-  { id: 2, name: '社团 B', owner: '李四', createdAt: '2022-03-01', status: 'pending' },
-  { id: 3, name: '社团 C', owner: '王五', createdAt: '2020-11-20', status: 'frozen' }
-]
+import { getClubList } from '@/api/club/club'
 
 export default {
   name: 'ClubList',
@@ -67,41 +61,76 @@ export default {
     return {
       filters: {
         status: '',
-        category: '',
-        ownerEmail: ''
+        categoryId: '',
+        founderEmail: ''
       },
-      page: 1,
+      pageNum: 1,
       pageSize: 10,
-      list: MOCK_DATA
+      total: 0,
+      list: [],
+      loading: false
     }
   },
   computed: {
-    filteredData() {
-      return this.list
-    },
     totalPages() {
-      return Math.max(1, Math.ceil(this.filteredData.length / this.pageSize))
-    },
-    pagedData() {
-      const start = (this.page - 1) * this.pageSize
-      return this.filteredData.slice(start, start + this.pageSize)
+      return Math.max(1, Math.ceil(this.total / this.pageSize))
     }
   },
+  created() {
+    this.fetchList()
+  },
   methods: {
+    async fetchList() {
+      this.loading = true
+      try {
+        const params = {
+          pageNum: this.pageNum,
+          pageSize: this.pageSize,
+          status: this.filters.status,
+          categoryId: this.filters.categoryId,
+          founderEmail: this.filters.founderEmail
+        }
+        const res = await getClubList(params)
+        if (res.code === 0 && res.data) {
+          this.list = res.data.list || []
+          this.total = res.data.total || 0
+        } else {
+          this.list = []
+          this.total = 0
+        }
+      } catch (e) {
+        this.list = []
+        this.total = 0
+      } finally {
+        this.loading = false
+      }
+    },
     handleSearch() {
-      this.page = 1
+      this.pageNum = 1
+      this.fetchList()
+    },
+    changePage(page) {
+      if (page < 1 || page > this.totalPages) return
+      this.pageNum = page
+      this.fetchList()
     },
     statusText(status) {
-      if (status === 'pending') return '待审批'
-      if (status === 'normal') return '正常'
-      if (status === 'frozen') return '冻结'
+      // 1:待审批 2:正常 3:冻结 4:拒绝
+      if (status == 1) return '待审批'
+      if (status == 2) return '正常'
+      if (status == 3) return '冻结'
+      if (status == 4) return '拒绝'
       return status
     },
-    approve(row) {
-      alert(`审批社团：${row.name}`)
+    statusClass(status) {
+      if (status == 1) return 'pending'
+      if (status == 2) return 'normal'
+      if (status == 3) return 'frozen'
+      if (status == 4) return 'rejected'
+      return ''
     },
     viewDetail(row) {
-      alert(`查看社团详情：${row.name}`)
+      this.$router.push({ name: 'ClubDetails', params: { id: row.clubId } })
     }
   }
 }
