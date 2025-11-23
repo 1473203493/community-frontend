@@ -99,23 +99,34 @@ export default {
       try {
         const res = await getValidateCode()
         if (res.code === 0 && res.data) {
-          this.captchaImg = res.data.codeValue
-          this.codeKey = res.data.codeKey
+          // 确保 codeValue 是有效的 Base64 图片数据
+          const imgData = res.data.codeValue
+          if (imgData && imgData.startsWith('data:image')) {
+            this.captchaImg = imgData
+            this.codeKey = res.data.codeKey
+          } else {
+            console.warn('验证码图片数据格式异常:', imgData)
+            this.captchaImg = ''
+            this.codeKey = ''
+          }
         } else {
           this.captchaImg = ''
           this.codeKey = ''
         }
-      } catch {
+      } catch (error) {
+        console.error('获取验证码失败:', error)
         this.captchaImg = ''
         this.codeKey = ''
       }
-    },
+    }
+,
     goReset() {
       alert('请联系系统管理员重置密码或在后续完善密码重置页面')
     }
   }
 }
 </script>
+
 
 <style scoped>
 .login-page {

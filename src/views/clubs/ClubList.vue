@@ -16,28 +16,28 @@
     <div class="table-wrapper">
       <table>
         <thead>
-          <tr>
-            <th>社团名称</th>
-            <th>负责人</th>
-            <th>成立时间</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
+        <tr>
+          <th>社团名称</th>
+          <th>负责人</th>
+          <th>成立时间</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="club in list" :key="club.clubId">
-            <td>{{ club.name }}</td>
-            <td>{{ club.founderName }}</td>
-            <td>{{ club.createdAt }}</td>
-            <td>
+        <tr v-for="club in list" :key="club.clubId">
+          <td>{{ club.name }}</td>
+          <td>{{ club.founderName }}</td>
+          <td>{{ formatDate(club.createdAt) }}</td>
+          <td>
               <span :class="['tag', 'tag-' + statusClass(club.status)]">
                 {{ statusText(club.status) }}
               </span>
-            </td>
-            <td>
-              <button @click="viewDetail(club)">查看</button>
-            </td>
-          </tr>
+          </td>
+          <td>
+            <button @click="viewDetail(club)">查看</button>
+          </td>
+        </tr>
         </tbody>
       </table>
       <div v-if="!list.length && !loading" class="empty">暂无数据</div>
@@ -86,19 +86,22 @@ export default {
         const params = {
           pageNum: this.pageNum,
           pageSize: this.pageSize,
-          status: this.filters.status,
-          categoryId: this.filters.categoryId,
-          founderEmail: this.filters.founderEmail
+          status: this.filters.status || undefined,
+          categoryId: this.filters.categoryId || undefined,
+          founderEmail: this.filters.founderEmail || undefined
         }
         const res = await getClubList(params)
         if (res.code === 0 && res.data) {
-          this.list = res.data.list || []
-          this.total = res.data.total || 0
+          // 兼容后端 list 字段为 undefined/null/非数组的情况
+          this.list = Array.isArray(res.data.list) ? res.data.list : []
+          // total 字段类型兼容
+          this.total = typeof res.data.total === 'number' ? res.data.total : (parseInt(res.data.total) || 0)
         } else {
           this.list = []
           this.total = 0
         }
       } catch (e) {
+        console.error('获取社团列表失败:', e)
         this.list = []
         this.total = 0
       } finally {
@@ -115,22 +118,26 @@ export default {
       this.fetchList()
     },
     statusText(status) {
-      // 1:待审批 2:正常 3:冻结 4:拒绝
-      if (status == 1) return '待审批'
-      if (status == 2) return '正常'
-      if (status == 3) return '冻结'
-      if (status == 4) return '拒绝'
+      if (status == "1") return '待审批'
+      if (status == "2") return '正常'
+      if (status == "3") return '冻结'
+      if (status == "4") return '拒绝'
       return status
     },
     statusClass(status) {
-      if (status == 1) return 'pending'
-      if (status == 2) return 'normal'
-      if (status == 3) return 'frozen'
-      if (status == 4) return 'rejected'
+      if (status == "1") return 'pending'
+      if (status == "2") return 'normal'
+      if (status == "3") return 'frozen'
+      if (status == "4") return 'rejected'
       return ''
     },
     viewDetail(row) {
-      this.$router.push({ name: 'ClubDetails', params: { id: row.clubId } })
+      this.$router.push({name: 'ClubDetails', params: {id: row.clubId}})
+    },
+    formatDate(dateString) {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toLocaleDateString('zh-CN')
     }
   }
 }
